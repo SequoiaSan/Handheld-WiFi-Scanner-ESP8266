@@ -38,9 +38,15 @@ class CScannerDisplay
   void DisplayMonitorInfo(SScanInfoDisplay& scanInfo);
   void DisplayError(const char* error);
 
+  void ResetAnimations();
+
   private:
     void DrawSignalStrengthBar(int rssi, int x_lt, int y_lt, int x_rb, int y_rb);
     String EncryptionTypeToString(short encType);
     int dBmtoPercentage(int dBm);
+
+    int m_animtaionCounter = 0;
+    unsigned long m_animationTime = 350;
+    unsigned long m_prevAnimationTime = 0;
   
 };

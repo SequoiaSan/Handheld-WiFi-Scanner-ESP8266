@@ -9,13 +9,14 @@ enum EContext
 {
   INVALID = -1,
   ERROR = 0,
-  ANIMATION,
+  SCAN_ANIMATION,
+  MONITOR_ANIMATION,
   SCAN_PAGE ,
   MONITOR_PAGE
 } g_context = INVALID;
 
-#define SCAN_BUTTON_PIN A0 //D2
-#define SELECT_BUTTON_PIN D2 //A0
+#define SCAN_BUTTON_PIN D10
+#define SELECT_BUTTON_PIN D2
 
 bool pageChanged = true;
 int g_totalAp = 0;
@@ -70,8 +71,6 @@ void onScanButtonClicked()
     return;
   }
   
-  
-  
   g_currentNetworkIndex = --g_currentNetworkIndex < 0 ? g_totalAp - 1 : g_currentNetworkIndex;
   pageChanged = true;
 
@@ -83,6 +82,13 @@ void onScanLongClickListener(int duration)
 {
   DEBUG_LOG_LN(F("Scan Button Long Click"));
 
+  if(g_context < EContext::SCAN_PAGE)
+  {
+    return;
+  }
+  
+  DEBUG_LOG_LN(F("Scan Button Long Click Processing"));
+    
   UnlockAP();
   ScanNetworks();
 }
@@ -121,8 +127,8 @@ void onSelectLongClickListener(int duration)
   {
     case SCAN_PAGE:
       LockAP();
-      scannerDisplay.ToMonitorModeTransition();
-      g_context = EContext::MONITOR_PAGE;
+      MonitorNetwork();
+      g_context = EContext::MONITOR_ANIMATION;
       break;
     case MONITOR_PAGE:
       ScanNetworks();
@@ -151,16 +157,9 @@ void setup() {
   ScanNetworks();
 }
 
-void ScanNetworks()
+void OnScanComplete(int totalAps)
 {
-  DEBUG_LOG_LN(F("ScanNetworks()"));
-  
-  scannerDisplay.ScanAnimation();
-  
-  WiFi.scanDelete();
-  const bool showHidden = true;
-  g_totalAp = WiFi.scanNetworks(false, showHidden);
-  --g_totalAp;
+  g_totalAp = totalAps;
   g_currentNetworkIndex = 0;
   pageChanged = true;
   if(g_totalAp > 0)
@@ -172,22 +171,78 @@ void ScanNetworks()
     DEBUG_LOG_LN(F("No APs found. Scan again."));
     scannerDisplay.DisplayError("No APs found. Scan again.");
     g_context = EContext::ERROR;
+  }  
+}
+
+void OnMonScanComplete(int totalAps)
+{
+  DEBUG_LOG_LN(F("DisplayMonitorInfo()"));
+  
+  g_totalAp = totalAps;
+  
+  if(g_totalAp > 0)
+  {
+    CScannerDisplay::SScanInfoDisplay scanInfo;
+    scanInfo.m_bssid = g_bssid;
+    scanInfo.m_ssid = g_ssid;
+    
+    int foundAp = 0;
+    if(FindLockedAP(foundAp))
+    {
+      scanInfo.m_currentAp = foundAp;
+      
+      uint8_t* bssid_fake;
+      if(WiFi.getNetworkInfo(scanInfo.m_currentAp, scanInfo.m_ssid, scanInfo.m_encryptionType, scanInfo.m_rssi, bssid_fake, scanInfo.m_channel, scanInfo.m_isHidden))
+      {
+        scannerDisplay.DisplayMonitorInfo(scanInfo);
+      }
+      else
+      {
+        DEBUG_LOG_LN(F("WiFi.getNetworkInfo() - Failed"));
+        scanInfo.m_rssi = NA;
+        scannerDisplay.DisplayMonitorInfo(scanInfo);    
+      }
+    }
+    else
+    {
+      DEBUG_LOG_LN(F("AP LOST"));
+      scanInfo.m_rssi = NA;
+      scannerDisplay.DisplayMonitorInfo(scanInfo);    
+    }
   }
+  else
+  {
+    DEBUG_LOG_LN(F("Monitor scan failed"));
+    scannerDisplay.DisplayError("Monitor scan failed");
+  }
+
+  if(g_context == EContext::MONITOR_ANIMATION)
+  {
+    g_context = EContext::MONITOR_PAGE;
+  }
+}
+
+void ScanNetworks()
+{
+  DEBUG_LOG_LN(F("ScanNetworks()"));
+  
+  WiFi.scanDelete();
+  const bool showHidden = true;
+  WiFi.scanNetworksAsync(OnScanComplete, showHidden);
+
+  g_context = EContext::SCAN_ANIMATION;
 }
 
 bool MonitorNetwork()
 {
-  DEBUG_LOG_LN(F("MonitorNetwork()"));
-  
-  WiFi.scanDelete();
-  const bool showHidden = true;
-  g_totalAp = WiFi.scanNetworks(false, showHidden);
-  --g_totalAp;
-  if(g_totalAp <= 0)
+  if(WiFi.scanComplete() >= 0)
   {
-    return false;
+    DEBUG_LOG_LN(F("MonitorNetwork()"));
+    
+    WiFi.scanDelete();
+    const bool showHidden = true;
+    WiFi.scanNetworksAsync(OnMonScanComplete, showHidden);
   }
-  return true;
 }
 
 void DisplayScannedAP()
@@ -267,9 +322,13 @@ void loop()
       DisplayScannedAP();
       break;
     case EContext::MONITOR_PAGE:
-      DisplayMonitorInfo();
+      MonitorNetwork();
       break;
-    case EContext::ANIMATION:
+    case EContext::SCAN_ANIMATION:
+      scannerDisplay.ScanAnimation();
+      break;
+    case EContext::MONITOR_ANIMATION:
+      scannerDisplay.ToMonitorModeTransition();
       break;
     case EContext::ERROR:
       break;

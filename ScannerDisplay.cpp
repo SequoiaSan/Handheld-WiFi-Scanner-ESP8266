@@ -76,28 +76,52 @@ void CScannerDisplay::DisplayScanListInfo(SScanInfoDisplay& scanInfo)
 
 void CScannerDisplay::ScanAnimation()
 {
-  const short offsetX = 10;
-  u8g2.clearBuffer();
-  u8g2.drawDisc(offsetX + 30, WEATHER_DISPLAY_H/2 - 7, 5);
-  u8g2.drawDisc(offsetX + 55, WEATHER_DISPLAY_H/2 - 7, 10);
-  u8g2.drawDisc(offsetX + 80, WEATHER_DISPLAY_H/2 - 7, 5);
-  u8g2.setFont(u8g2_font_7x13B_tr);
-  const char* message = "Scanning";
-  u8g2.drawStr(WEATHER_DISPLAY_W/2 - u8g2.getStrWidth(message)/2, 55, message);
-  u8g2.sendBuffer();
+  unsigned long currentTime = millis();
+  if(currentTime - m_prevAnimationTime > m_animationTime)
+  {
+    m_prevAnimationTime = currentTime;
+
+    const short offsetX = 10;
+    const short mutliplier = 2;
+    
+    u8g2.clearBuffer();
+    for(int i = 0; i < 3; ++i)
+    {
+      u8g2.drawDisc(offsetX + 30 + 25 * i, WEATHER_DISPLAY_H/2 - 7, 5 * (m_animtaionCounter == i ? mutliplier : 1));
+    }
+  
+    m_animtaionCounter = ++m_animtaionCounter % 3;
+    
+    u8g2.setFont(u8g2_font_7x13B_tr);
+    const char* message = "Scanning";
+    u8g2.drawStr(WEATHER_DISPLAY_W/2 - u8g2.getStrWidth(message)/2, 55, message);
+    u8g2.sendBuffer();
+  }
 }
 
 void CScannerDisplay::ToMonitorModeTransition()
 {
-  const short offsetX = 10;
-  u8g2.clearBuffer();
-  u8g2.drawDisc(offsetX + 30, WEATHER_DISPLAY_H/2 - 7, 10);
-  u8g2.drawDisc(offsetX + 55, WEATHER_DISPLAY_H/2 - 7, 10);
-  u8g2.drawDisc(offsetX + 80, WEATHER_DISPLAY_H/2 - 7, 10);
-  u8g2.setFont(u8g2_font_7x13B_tr);
-  const char* message = "Monitor Mode";
-  u8g2.drawStr(WEATHER_DISPLAY_W/2 - u8g2.getStrWidth(message)/2, 55, message);
-  u8g2.sendBuffer();
+  unsigned long currentTime = millis();
+  if(currentTime - m_prevAnimationTime > m_animationTime)
+  {
+    m_prevAnimationTime = currentTime;
+    
+    const short offsetX = 10;
+    const short mutliplier = 2;
+    
+    u8g2.clearBuffer();
+
+    u8g2.drawDisc(offsetX + 30, WEATHER_DISPLAY_H/2 - 7, 5 * (m_animtaionCounter == 0 ? mutliplier : 1));
+    u8g2.drawDisc(offsetX + 55, WEATHER_DISPLAY_H/2 - 7, 5 * (m_animtaionCounter == 1 ? mutliplier : 1));
+    u8g2.drawDisc(offsetX + 80, WEATHER_DISPLAY_H/2 - 7, 5 * (m_animtaionCounter == 0 ? mutliplier : 1));
+    
+    m_animtaionCounter = ++m_animtaionCounter % 2;
+
+    u8g2.setFont(u8g2_font_7x13B_tr);
+    const char* message = "Monitor Mode";
+    u8g2.drawStr(WEATHER_DISPLAY_W/2 - u8g2.getStrWidth(message)/2, 55, message);
+    u8g2.sendBuffer();
+  }
 }
 
 void CScannerDisplay::DisplayMonitorInfo(SScanInfoDisplay& scanInfo)
