@@ -1,8 +1,6 @@
 #include "ESP8266WiFi.h"
 #include "AwesomeClickButton.h"
-
 #include "ScannerDisplay.h"
-
 #include "DebugHelpers.h"
 
 enum EContext
@@ -18,11 +16,11 @@ enum EContext
 #define SCAN_BUTTON_PIN D10
 #define SELECT_BUTTON_PIN D2
 
+CScannerDisplay scannerDisplay;
+
 bool pageChanged = true;
 int g_totalAp = 0;
 int g_currentNetworkIndex = 0;
-
-CScannerDisplay scannerDisplay;
 
 bool g_apLocked = false;
 String g_bssid;
@@ -74,7 +72,7 @@ void onScanButtonClicked()
   g_currentNetworkIndex = --g_currentNetworkIndex < 0 ? g_totalAp - 1 : g_currentNetworkIndex;
   pageChanged = true;
 
-  DEBUG_LOG(F("Scan Button Processing "));
+  DEBUG_LOG(F("Scan Button Processing Index: "));
   DEBUG_LOG_LN(g_currentNetworkIndex);
 }
 
@@ -131,6 +129,7 @@ void onSelectLongClickListener(int duration)
       g_context = EContext::MONITOR_ANIMATION;
       break;
     case MONITOR_PAGE:
+      UnlockAP();
       ScanNetworks();
       break;    
   }
@@ -267,47 +266,6 @@ void DisplayScannedAP()
       DEBUG_LOG_LN(F("FAILED to retrieve scan result info."));
       scannerDisplay.DisplayError("FAILED to retrieve scan result info.");
     }
-  }
-}
-
-void DisplayMonitorInfo()
-{
-  DEBUG_LOG_LN(F("DisplayMonitorInfo()"));
-  
-  if(MonitorNetwork())
-  {
-    CScannerDisplay::SScanInfoDisplay scanInfo;
-    scanInfo.m_bssid = g_bssid;
-    scanInfo.m_ssid = g_ssid;
-    
-    int foundAp = 0;
-    if(FindLockedAP(foundAp))
-    {
-      scanInfo.m_currentAp = foundAp;
-      
-      uint8_t* bssid_fake;
-      if(WiFi.getNetworkInfo(scanInfo.m_currentAp, scanInfo.m_ssid, scanInfo.m_encryptionType, scanInfo.m_rssi, bssid_fake, scanInfo.m_channel, scanInfo.m_isHidden))
-      {
-        scannerDisplay.DisplayMonitorInfo(scanInfo);
-      }
-      else
-      {
-        DEBUG_LOG_LN(F("WiFi.getNetworkInfo() - Failed"));
-        scanInfo.m_rssi = NA;
-        scannerDisplay.DisplayMonitorInfo(scanInfo);    
-      }
-    }
-    else
-    {
-      DEBUG_LOG_LN(F("AP LOST"));
-      scanInfo.m_rssi = NA;
-      scannerDisplay.DisplayMonitorInfo(scanInfo);    
-    }
-  }
-  else
-  {
-    DEBUG_LOG_LN(F("Monitor scan failed"));
-    scannerDisplay.DisplayError("Monitor scan failed");
   }
 }
 
